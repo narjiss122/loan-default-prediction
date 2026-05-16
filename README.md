@@ -3,7 +3,7 @@ Final Year Project - MLP from Scratch using Numpy
 
 ## Status
 - ✅ Document 1 — System Design
-- ✅ Document 3 — Data Engineering
+- ✅ Document 3 — Data preprocessing
 - 🔄 Document 2 — Neural Network (In Progress)
 - ⏳ Document 4 — Results & Evaluation
 
