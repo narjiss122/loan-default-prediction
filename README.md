@@ -127,6 +127,17 @@ PFE_Project/
 │   ├── processed/
 │   │   └── clean_dataset.csv
 │   └── raw/                 ← Not tracked (see Dataset section)
+├── frontend/
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── ApplicantForm.jsx
+│   │   │   ├── Confirmation.jsx
+│   │   │   ├── OfficerLogin.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   └── ApplicationDetail.jsx
+│   │   ├── components/
+│   │   └── App.jsx
+│   └── index.html
 ├── model/
 │   ├── model_weights.npz    ← Trained MLP weights (W1, b1, W2, b2)
 │   └── scale_params.json    ← MinMax scaling parameters
