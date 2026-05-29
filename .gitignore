@@ -3,3 +3,5 @@ sampleEntry*.csv
 cs-test.csv
 __pycache__/
 .ipynb_checkpoints/
+backend/uploads/*
+!backend/uploads/.gitkeep
