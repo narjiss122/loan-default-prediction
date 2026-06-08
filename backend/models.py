@@ -53,10 +53,10 @@ class Application(Base):
 
     # Model prediction
     default_probability = Column(Float, nullable=True)
-    risk_verdict        = Column(Enum(RiskVerdict), nullable=True)
+    risk_verdict = Column(Enum(RiskVerdict, values_callable=lambda x: [e.value for e in x]), nullable=True)
 
     # Officer decision
-    status                 = Column(Enum(DecisionStatus), default=DecisionStatus.PENDING, nullable=False)
+    status = Column(Enum(DecisionStatus, values_callable=lambda x: [e.value for e in x]), default=DecisionStatus.PENDING, nullable=False)
     decided_by_employee_id = Column(Integer, ForeignKey("employees.id"), nullable=True)
     decided_at             = Column(DateTime, nullable=True)
 
@@ -81,3 +81,5 @@ class Document(Base):
     uploaded_at       = Column(DateTime, default=datetime.utcnow)
 
     application = relationship("Application", back_populates="documents")
+
+    
