@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 from database import Base, engine, get_db
 from models import Application, Document, Employee, DecisionStatus, RiskVerdict
 from auth import router as auth_router, get_current_employee
+from email_service import send_decision_email
 
 # Create all tables on startup (safe: only creates what doesn't exist)
 Base.metadata.create_all(bind=engine)
@@ -341,8 +342,12 @@ def make_decision(
     application.decided_at = datetime.utcnow()
 
     # Email comes in Step 4 (email_service.py) — placeholder for now
-    email_sent = False
-
+    # Send notification email to the applicant
+    email_sent = send_decision_email(
+        applicant_name=application.full_name,
+        applicant_email=application.email,
+        decision=body.decision,
+    )
     application.email_sent = email_sent
     db.commit()
 
