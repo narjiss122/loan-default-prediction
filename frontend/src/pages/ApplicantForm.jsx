@@ -7,6 +7,21 @@ import Select from '../components/ui/Select'
 
 const STEPS = ['Personal information', 'Documents', 'Summary']
 
+// Structural email check: local-part@domain.tld, no spaces.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Moroccan mobile numbers: 06/07 + 8 digits (10 digits total),
+// or the +212 6/7 + 8 digits international form.
+const MOROCCAN_PHONE_REGEX = /^(0[67]\d{8}|\+212[67]\d{8})$/
+
+function isValidEmail(value) {
+  return EMAIL_REGEX.test(value.trim())
+}
+
+function isValidMoroccanPhone(value) {
+  return MOROCCAN_PHONE_REGEX.test(value.trim().replace(/\s+/g, ''))
+}
+
 const PROFESSIONAL_STATUS_OPTIONS = [
   { value: 'SALARIE',       label: 'Salaried employee' },
   { value: 'SELF_EMPLOYED', label: 'Self-employed / Entrepreneur' },
@@ -113,10 +128,29 @@ export default function ApplicantForm() {
   // Step 2 — documents, keyed by DocumentType value
   const [documentFiles, setDocumentFiles] = useState({})
 
+  // Format errors for email/phone, shown inline on the Input components
+  const [fieldErrors, setFieldErrors] = useState({ email: '', phone: '' })
+
   const slots = DOCUMENT_SLOTS[professionalStatus]
 
   function setDocumentFile(type, file) {
     setDocumentFiles(prev => ({ ...prev, [type]: file }))
+  }
+
+  function validateEmailField() {
+    if (!email.trim()) return
+    setFieldErrors(prev => ({
+      ...prev,
+      email: isValidEmail(email) ? '' : 'Please enter a valid email address',
+    }))
+  }
+
+  function validatePhoneField() {
+    if (!phone.trim()) return
+    setFieldErrors(prev => ({
+      ...prev,
+      phone: isValidMoroccanPhone(phone) ? '' : 'Please enter a valid Moroccan phone number',
+    }))
   }
 
   function validateStep1() {
@@ -124,6 +158,18 @@ export default function ApplicantForm() {
       setError('Please fill in all required fields.')
       return false
     }
+
+    const newFieldErrors = {
+      email: isValidEmail(email) ? '' : 'Please enter a valid email address',
+      phone: isValidMoroccanPhone(phone) ? '' : 'Please enter a valid Moroccan phone number',
+    }
+    setFieldErrors(newFieldErrors)
+
+    if (newFieldErrors.email || newFieldErrors.phone) {
+      setError('Please fix the errors below.')
+      return false
+    }
+
     setError('')
     return true
   }
@@ -217,6 +263,8 @@ export default function ApplicantForm() {
                   type="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
+                  onBlur={validateEmailField}
+                  error={fieldErrors.email}
                   placeholder="your@email.com"
                 />
                 <Input
@@ -224,6 +272,8 @@ export default function ApplicantForm() {
                   type="tel"
                   value={phone}
                   onChange={e => setPhone(e.target.value)}
+                  onBlur={validatePhoneField}
+                  error={fieldErrors.phone}
                   placeholder="06XXXXXXXX"
                 />
               </div>
