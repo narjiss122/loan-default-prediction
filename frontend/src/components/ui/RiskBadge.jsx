@@ -4,8 +4,8 @@ const STYLES = {
 }
 
 const LABELS = {
-  'LOW RISK':  'Risque faible',
-  'HIGH RISK': 'Risque élevé',
+  'LOW RISK':  'Low risk',
+  'HIGH RISK': 'High risk',
 }
 
 export default function RiskBadge({ verdict }) {

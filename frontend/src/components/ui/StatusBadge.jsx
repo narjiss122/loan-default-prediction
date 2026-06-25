@@ -6,10 +6,10 @@ const STYLES = {
 }
 
 const LABELS = {
-  SUBMITTED: 'Soumis',
-  PREDICTED: 'Évalué',
-  ACCEPTED:  'Accepté',
-  REFUSED:   'Refusé',
+  SUBMITTED: 'Submitted',
+  PREDICTED: 'Evaluated',
+  ACCEPTED:  'Accepted',
+  REFUSED:   'Refused',
 }
 
 export default function StatusBadge({ status }) {
