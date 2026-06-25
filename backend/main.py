@@ -110,7 +110,12 @@ app = FastAPI(
 # ── CORS: allow the React frontend to call this API ────────────────────────────
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],   # Vite dev server
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
+    ],   # Vite dev server (port can shift if 5173 is taken)
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -147,6 +152,9 @@ class ApplicationSummary(BaseModel):
     created_at: datetime
     full_name: str
     email: str
+    professional_status: str
+    declared_monthly_income: float
+    loan_amount: float
     status: str                        # SUBMITTED | PREDICTED | ACCEPTED | REFUSED
     risk_verdict: Optional[str]
     default_probability: Optional[float]
