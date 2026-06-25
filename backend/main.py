@@ -338,6 +338,21 @@ def get_application(
     return application
 
 
+@app.get("/documents/{document_id}", summary="View/download one uploaded document")
+def get_document(
+    document_id: int,
+    employee: Employee = Depends(get_current_employee),
+    db: Session = Depends(get_db),
+):
+    document = db.query(Document).filter(Document.id == document_id).first()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found.")
+    if not os.path.isfile(document.file_path):
+        raise HTTPException(status_code=404, detail="File missing from disk.")
+
+    return FileResponse(document.file_path, filename=document.original_filename)
+
+
 
 @app.post("/applications/{app_id}/review", response_model=ReviewResponse, summary="Enter verified financials and run the model")
 def review_application(
