@@ -5,7 +5,7 @@ import json
 import shutil
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Annotated, List, Optional
 
 import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, status, File, Form, UploadFile
@@ -15,7 +15,10 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.orm import Session
 
 from database import Base, engine, get_db
-from models import Application, Document, Employee, DecisionStatus, RiskVerdict
+from models import (
+    Application, Document, Employee,
+    DecisionStatus, RiskVerdict, ProfessionalStatus, DocumentType,
+)
 from auth import router as auth_router, get_current_employee
 from email_service import send_decision_email
 
@@ -130,7 +133,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class DocumentOut(BaseModel):
     id: int
-    doc_type: str
+    document_type: str
     original_filename: str
     uploaded_at: datetime
 
@@ -141,10 +144,10 @@ class DocumentOut(BaseModel):
 class ApplicationSummary(BaseModel):
     """One row in the applications list (dashboard table)."""
     id: int
-    submitted_at: datetime
+    created_at: datetime
     full_name: str
     email: str
-    status: str
+    status: str                        # SUBMITTED | PREDICTED | ACCEPTED | REFUSED
     risk_verdict: Optional[str]
     default_probability: Optional[float]
 
@@ -155,30 +158,60 @@ class ApplicationSummary(BaseModel):
 class ApplicationDetail(BaseModel):
     """Full application data for the detail page."""
     id: int
-    submitted_at: datetime
+
+    # Applicant-declared
     full_name: str
     email: str
-    phone: Optional[str]
+    phone: str
     age: int
-    monthly_income: float
-    credit_line_usage: float
-    debt_ratio: float
-    late_30_59_days: int
-    late_60_89_days: int
-    late_90_days: int
-    open_credit_lines: int
+    professional_status: str
+    declared_monthly_income: float
+    number_of_dependents: int
     real_estate_loans: int
-    dependents: int
-    income_was_missing: bool
+    loan_amount: float
+    created_at: datetime
+
+    # Employee-verified
+    verified_monthly_income: Optional[float]
+    credit_line_usage: Optional[float]
+    debt_ratio: Optional[float]
+    late_30_59: Optional[int]
+    late_60_89: Optional[int]
+    late_90: Optional[int]
+    open_credit_lines: Optional[int]
+
+    # Model output
     default_probability: Optional[float]
     risk_verdict: Optional[str]
+    predicted_at: Optional[datetime]
+
+    # Decision / workflow
     status: str
     decided_at: Optional[datetime]
     email_sent: bool
+
     documents: List[DocumentOut]
 
     class Config:
         from_attributes = True
+
+
+class ReviewRequest(BaseModel):
+    """Employee-entered verified financials, submitted to run the model."""
+    verified_monthly_income: float
+    credit_line_usage: float
+    debt_ratio: float
+    late_30_59: int = 0
+    late_60_89: int = 0
+    late_90: int = 0
+    open_credit_lines: int = 0
+
+
+class ReviewResponse(BaseModel):
+    application_id: int
+    default_probability: float
+    risk_verdict: str
+    status: str
 
 
 class DecisionRequest(BaseModel):
@@ -200,78 +233,56 @@ class DecisionResponse(BaseModel):
 
 @app.post("/apply", status_code=status.HTTP_201_CREATED, summary="Submit a loan application")
 def apply(
-    # Personal info
-    full_name: str = Form(...),
-    email: str = Form(...),
-    phone: str = Form(""),
-    # Financial info
-    age: int = Form(...),
-    monthly_income: float = Form(...),
-    credit_line_usage: float = Form(...),
-    debt_ratio: float = Form(...),
-    late_30_59_days: int = Form(0),
-    late_60_89_days: int = Form(0),
-    late_90_days: int = Form(0),
-    open_credit_lines: int = Form(0),
-    real_estate_loans: int = Form(0),
-    dependents: int = Form(0),
-    income_was_missing: bool = Form(False),
-    # Documents
-    id_card: UploadFile = File(...),
-    bank_statement: UploadFile = File(...),
-    work_certificate: UploadFile = File(...),
+    # Personal / declared info
+    full_name: Annotated[str, Form(...)],
+    email: Annotated[str, Form(...)],
+    phone: Annotated[str, Form(...)],
+    age: Annotated[int, Form(...)],
+    professional_status: Annotated[ProfessionalStatus, Form(...)],
+    declared_monthly_income: Annotated[float, Form(...)],
+    loan_amount: Annotated[float, Form(...)],
+    # Documents (parallel lists: documents[i] has type document_types[i]).
+    # Annotated[...] form is required here — List[UploadFile] = File(...)
+    # generates a broken OpenAPI schema (array<string>) that makes Swagger UI
+    # render a text box instead of a file picker.
+    documents: Annotated[List[UploadFile], File(...)],
+    document_types: Annotated[List[str], Form(...)],
+    number_of_dependents: Annotated[int, Form()] = 0,
+    real_estate_loans: Annotated[int, Form()] = 0,
     # Database session
     db: Session = Depends(get_db),
 ):
-    # 1. Build the raw dict in the exact feature order the model expects
-    raw = {
-        "CreditLineUsage": credit_line_usage,
-        "Age": age,
-        "Late30to59Days": late_30_59_days,
-        "DebtRatio": debt_ratio,
-        "MonthlyIncome": monthly_income,
-        "OpenCreditLines": open_credit_lines,
-        "Late90Days": late_90_days,
-        "RealEstateLoans": real_estate_loans,
-        "Late60to89Days": late_60_89_days,
-        "Dependents": dependents,
-        "MonthlyIncome_Was_Missing": int(income_was_missing),
-    }
+    # 1. Validate the document/type lists line up
+    if len(documents) != len(document_types):
+        raise HTTPException(
+            status_code=422,
+            detail="documents and document_types must have the same length.",
+        )
 
-    # 2. Run the model
-    probability = forward(scale_input(raw))
-    verdict = "HIGH RISK" if probability >= THRESHOLD else "LOW RISK"
+    valid_types = {t.value for t in DocumentType}
+    for doc_type in document_types:
+        if doc_type not in valid_types:
+            raise HTTPException(status_code=422, detail=f"Invalid document_type '{doc_type}'.")
 
-    # 3. Save the application row
+    # 2. Save the application row — no prediction yet, employee-verified and
+    #    model-output columns stay null until the employee review step.
     application = Application(
         full_name=full_name.strip(),
         email=email.strip().lower(),
-        phone=phone.strip() or None,
+        phone=phone.strip(),
         age=age,
-        monthly_income=monthly_income,
-        credit_line_usage=credit_line_usage,
-        debt_ratio=debt_ratio,
-        late_30_59_days=late_30_59_days,
-        late_60_89_days=late_60_89_days,
-        late_90_days=late_90_days,
-        open_credit_lines=open_credit_lines,
+        professional_status=professional_status,
+        declared_monthly_income=declared_monthly_income,
+        number_of_dependents=number_of_dependents,
         real_estate_loans=real_estate_loans,
-        dependents=dependents,
-        income_was_missing=income_was_missing,
-        default_probability=round(probability, 4),
-        risk_verdict=RiskVerdict.HIGH_RISK if verdict == "HIGH RISK" else RiskVerdict.LOW_RISK,
-        status=DecisionStatus.PENDING,
+        loan_amount=loan_amount,
+        status=DecisionStatus.SUBMITTED,
     )
     db.add(application)
     db.flush()   # assigns application.id without committing yet
 
-    # 4. Save the uploaded documents
-    uploads = [
-        (id_card, "id_card"),
-        (bank_statement, "bank_statement"),
-        (work_certificate, "work_certificate"),
-    ]
-    for upload_file, doc_type in uploads:
+    # 3. Save the uploaded documents
+    for upload_file, doc_type in zip(documents, document_types):
         ext = os.path.splitext(upload_file.filename)[-1].lower()
         safe_name = f"{uuid.uuid4().hex}{ext}"
         dest_path = os.path.join(UPLOAD_DIR, safe_name)
@@ -281,13 +292,13 @@ def apply(
 
         db.add(Document(
             application_id=application.id,
-            doc_type=doc_type,
+            document_type=DocumentType(doc_type),
             original_filename=upload_file.filename,
             stored_filename=safe_name,
             file_path=dest_path,
         ))
 
-    # 5. Commit everything together
+    # 4. Commit everything together
     db.commit()
 
     return {"message": "Application submitted successfully.", "application_id": application.id}
@@ -304,7 +315,7 @@ def list_applications(
     employee: Employee = Depends(get_current_employee),
     db: Session = Depends(get_db),
 ):
-    return db.query(Application).order_by(Application.submitted_at.desc()).all()
+    return db.query(Application).order_by(Application.created_at.desc()).all()
 
 
 @app.get("/applications/{app_id}", response_model=ApplicationDetail, summary="One application in full")
@@ -317,6 +328,70 @@ def get_application(
     if not application:
         raise HTTPException(status_code=404, detail="Application not found.")
     return application
+
+
+
+@app.post("/applications/{app_id}/review", response_model=ReviewResponse, summary="Enter verified financials and run the model")
+def review_application(
+    app_id: int,
+    body: ReviewRequest,
+    employee: Employee = Depends(get_current_employee),
+    db: Session = Depends(get_db),
+):
+    application = db.query(Application).filter(Application.id == app_id).first()
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found.")
+
+    if application.status != DecisionStatus.SUBMITTED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Application is in status {application.status.value}; review can only run once, from SUBMITTED.",
+        )
+
+    # 1. Save the employee-verified fields
+    application.verified_monthly_income = body.verified_monthly_income
+    application.credit_line_usage = body.credit_line_usage
+    application.debt_ratio = body.debt_ratio
+    application.late_30_59 = body.late_30_59
+    application.late_60_89 = body.late_60_89
+    application.late_90 = body.late_90
+    application.open_credit_lines = body.open_credit_lines
+
+    # 2. Build the raw dict in the exact feature order the model expects.
+    #    MonthlyIncome uses the VERIFIED income, never the declared one.
+    #    MonthlyIncome_Was_Missing is hardcoded to 0: verified_monthly_income
+    #    is mandatory here, so it is never missing by the time the model runs.
+    raw = {
+        "CreditLineUsage": body.credit_line_usage,
+        "Age": application.age,
+        "Late30to59Days": body.late_30_59,
+        "DebtRatio": body.debt_ratio,
+        "MonthlyIncome": body.verified_monthly_income,
+        "OpenCreditLines": body.open_credit_lines,
+        "Late90Days": body.late_90,
+        "RealEstateLoans": application.real_estate_loans,
+        "Late60to89Days": body.late_60_89,
+        "Dependents": application.number_of_dependents,
+        "MonthlyIncome_Was_Missing": 0,
+    }
+
+    # 3. Run the model
+    probability = forward(scale_input(raw))
+    verdict = RiskVerdict.HIGH_RISK if probability >= THRESHOLD else RiskVerdict.LOW_RISK
+
+    application.default_probability = round(probability, 4)
+    application.risk_verdict = verdict
+    application.predicted_at = datetime.utcnow()
+    application.status = DecisionStatus.PREDICTED
+
+    db.commit()
+
+    return ReviewResponse(
+        application_id=application.id,
+        default_probability=application.default_probability,
+        risk_verdict=verdict.value,
+        status=application.status.value,
+    )
 
 
 @app.post("/applications/{app_id}/decision", response_model=DecisionResponse, summary="Accept or refuse")
@@ -333,15 +408,18 @@ def make_decision(
     if not application:
         raise HTTPException(status_code=404, detail="Application not found.")
 
-    if application.status != DecisionStatus.PENDING:
-        raise HTTPException(status_code=409, detail=f"Already decided: {application.status.value}.")
+    if application.status != DecisionStatus.PREDICTED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot decide before the model has run (status: {application.status.value}). "
+                   f"Run POST /applications/{app_id}/review first.",
+        )
 
     # Update the decision
     application.status = DecisionStatus[body.decision]
     application.decided_by_employee_id = employee.id
     application.decided_at = datetime.utcnow()
 
-    # Email comes in Step 4 (email_service.py) — placeholder for now
     # Send notification email to the applicant
     email_sent = send_decision_email(
         applicant_name=application.full_name,
@@ -349,6 +427,7 @@ def make_decision(
         decision=body.decision,
     )
     application.email_sent = email_sent
+    application.email_sent_at = datetime.utcnow() if email_sent else None
     db.commit()
 
     return DecisionResponse(
