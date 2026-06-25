@@ -1,11 +1,14 @@
 """Loan Default Risk Prediction API"""
 
+import logging
 import os
 import json
 import shutil
 import uuid
 from datetime import datetime
 from typing import Annotated, List, Optional
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 import numpy as np
 from fastapi import FastAPI, Depends, HTTPException, status, File, Form, UploadFile

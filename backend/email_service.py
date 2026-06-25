@@ -1,12 +1,17 @@
-"""Email notification service — sends accept/refuse emails to applicants in French."""
+"""Email notification service — sends accept/refuse emails to applicants in English."""
 
+import logging
 import os
 import smtplib
+from email.header import Header
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.utils import formataddr
 from dotenv import load_dotenv
 
 load_dotenv()
+
+logger = logging.getLogger("email_service")
 
 SMTP_HOST      = os.getenv("SMTP_HOST", "smtp.gmail.com")
 SMTP_PORT      = int(os.getenv("SMTP_PORT", "587"))
@@ -21,31 +26,25 @@ def _build_email_content(full_name: str, decision: str) -> tuple[str, str]:
     first_name = full_name.strip().split()[0]  # just the first name for the greeting
 
     if decision == "ACCEPTED":
-        subject = "Votre demande de crédit a été acceptée"
-        body = f"""Madame, Monsieur {full_name},
+        subject = "Your Loan Application — Decision"
+        body = f"""Dear {first_name},
 
-Nous avons le plaisir de vous informer que votre demande de crédit a été examinée et acceptée par nos services.
+Good news — your loan application has been approved. An advisor will contact you shortly with the next steps.
 
-Un conseiller vous contactera prochainement pour finaliser les démarches nécessaires.
+Thank you for choosing us.
 
-Nous vous remercions de votre confiance et restons à votre disposition pour toute question.
-
-Cordialement,
+Best regards,
 {SMTP_FROM_NAME}"""
 
     else:  # REFUSED
-        subject = "Votre demande de crédit — Suite donnée"
-        body = f"""Madame, Monsieur {full_name},
+        subject = "Your Loan Application — Decision"
+        body = f"""Dear {first_name},
 
-Nous avons bien reçu et examiné votre demande de crédit avec toute l'attention qu'elle mérite.
+After careful review, we are unable to approve your loan application at this time.
 
-Après étude approfondie de votre dossier, nous sommes dans l'obligation de vous informer que nous ne sommes pas en mesure de donner une suite favorable à votre demande.
+Thank you for your understanding.
 
-Cette décision ne remet pas en cause votre situation personnelle. Nous vous encourageons à nous contacter si vous souhaitez plus d'informations.
-
-Nous vous remercions de votre compréhension.
-
-Cordialement,
+Best regards,
 {SMTP_FROM_NAME}"""
 
     return subject, body
@@ -61,9 +60,12 @@ def send_decision_email(applicant_name: str, applicant_email: str, decision: str
     try:
         subject, body = _build_email_content(applicant_name, decision)
 
-        # Build the email object
+        # Build the email object. formataddr + Header RFC-2047-encode the
+        # display name so a non-ASCII sender name ("Banque Crédit Personnel")
+        # doesn't produce a malformed header — un-encoded UTF-8 in headers can
+        # get a message silently flagged as spam by some receiving servers.
         msg = MIMEMultipart()
-        msg["From"]    = f"{SMTP_FROM_NAME} <{SMTP_USER}>"
+        msg["From"]    = formataddr((str(Header(SMTP_FROM_NAME, "utf-8")), SMTP_USER))
         msg["To"]      = applicant_email
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain", "utf-8"))
@@ -75,8 +77,18 @@ def send_decision_email(applicant_name: str, applicant_email: str, decision: str
             server.login(SMTP_USER, SMTP_PASSWORD)
             server.sendmail(SMTP_USER, applicant_email, msg.as_string())
 
+        logger.info("Decision email sent to %s (decision=%s)", applicant_email, decision)
         return True
 
-    except Exception as e:
-        print(f"[email_service] Failed to send email to {applicant_email}: {e}")
+    except smtplib.SMTPAuthenticationError:
+        logger.exception("SMTP authentication failed while emailing %s — check SMTP_USER/SMTP_PASSWORD.", applicant_email)
+        return False
+    except smtplib.SMTPRecipientsRefused:
+        logger.exception("SMTP server refused recipient %s.", applicant_email)
+        return False
+    except smtplib.SMTPException:
+        logger.exception("SMTP error while sending decision email to %s.", applicant_email)
+        return False
+    except OSError:
+        logger.exception("Network/connection error while sending decision email to %s.", applicant_email)
         return False
