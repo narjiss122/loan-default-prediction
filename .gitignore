@@ -6,3 +6,6 @@ __pycache__/
 backend/uploads/*
 !backend/uploads/.gitkeep
 .env
+*.docx
+*.ppt
+*.pdf
