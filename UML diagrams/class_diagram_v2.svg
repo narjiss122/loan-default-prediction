@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1180 860" font-family="Arial, Helvetica, sans-serif">
+  <rect width="1180" height="860" fill="#ffffff"/>
+  <text x="590" y="38" font-size="22" font-weight="bold" text-anchor="middle" fill="#1a3f2d">Class Diagram — Loan Default Risk Prediction System</text>
+
+  <!-- ===================== Application class ===================== -->
+  <g>
+    <rect x="40" y="80" width="430" height="560" rx="6" fill="#f0f9f4" stroke="#2f7a52" stroke-width="2"/>
+    <rect x="40" y="80" width="430" height="34" rx="6" fill="#2f7a52"/>
+    <text x="255" y="103" font-size="17" font-weight="bold" text-anchor="middle" fill="#ffffff">Application</text>
+
+    <!-- zone: declared -->
+    <text x="52" y="134" font-size="12" font-style="italic" fill="#266143">«applicant-declared» (not null)</text>
+    <text x="52" y="154" font-size="12.5" fill="#1a3f2d">- id: int</text>
+    <text x="52" y="172" font-size="12.5" fill="#1a3f2d">- fullName: string</text>
+    <text x="52" y="190" font-size="12.5" fill="#1a3f2d">- email: string</text>
+    <text x="52" y="208" font-size="12.5" fill="#1a3f2d">- phone: string</text>
+    <text x="52" y="226" font-size="12.5" fill="#1a3f2d">- age: int</text>
+    <text x="52" y="244" font-size="12.5" fill="#1a3f2d">- professionalStatus: ProfessionalStatus</text>
+    <text x="52" y="262" font-size="12.5" fill="#1a3f2d">- declaredMonthlyIncome: float</text>
+    <text x="52" y="280" font-size="12.5" fill="#1a3f2d">- numberOfDependents: int</text>
+    <text x="52" y="298" font-size="12.5" fill="#1a3f2d">- realEstateLoans: int</text>
+    <text x="52" y="316" font-size="12.5" fill="#1a3f2d">- loanAmount: float</text>
+    <text x="52" y="334" font-size="12.5" fill="#1a3f2d">- createdAt: datetime</text>
+
+    <line x1="48" y1="346" x2="462" y2="346" stroke="#b8e0c8" stroke-width="1"/>
+    <!-- zone: verified -->
+    <text x="52" y="364" font-size="12" font-style="italic" fill="#266143">«employee-verified» (nullable)</text>
+    <text x="52" y="384" font-size="12.5" fill="#1a3f2d">- verifiedMonthlyIncome: float</text>
+    <text x="52" y="402" font-size="12.5" fill="#1a3f2d">- creditLineUsage: float</text>
+    <text x="52" y="420" font-size="12.5" fill="#1a3f2d">- debtRatio: float</text>
+    <text x="52" y="438" font-size="12.5" fill="#1a3f2d">- late30to59Days: int</text>
+    <text x="52" y="456" font-size="12.5" fill="#1a3f2d">- late60to89Days: int</text>
+    <text x="52" y="474" font-size="12.5" fill="#1a3f2d">- late90Days: int</text>
+    <text x="52" y="492" font-size="12.5" fill="#1a3f2d">- openCreditLines: int</text>
+
+    <line x1="48" y1="504" x2="462" y2="504" stroke="#b8e0c8" stroke-width="1"/>
+    <!-- zone: model output + workflow -->
+    <text x="52" y="522" font-size="12" font-style="italic" fill="#266143">«model output / workflow» (nullable)</text>
+    <text x="52" y="542" font-size="12.5" fill="#1a3f2d">- defaultProbability: float</text>
+    <text x="52" y="560" font-size="12.5" fill="#1a3f2d">- riskVerdict: RiskVerdict</text>
+    <text x="52" y="578" font-size="12.5" fill="#1a3f2d">- predictedAt: datetime</text>
+    <text x="52" y="596" font-size="12.5" fill="#1a3f2d">- status: ApplicationStatus</text>
+    <text x="52" y="614" font-size="12.5" fill="#1a3f2d">- decidedByEmployeeId: int   - decidedAt: datetime</text>
+    <text x="52" y="632" font-size="12.5" fill="#1a3f2d">- emailSent: bool   - emailSentAt: datetime</text>
+  </g>
+
+  <!-- ===================== Employee class ===================== -->
+  <g>
+    <rect x="710" y="80" width="420" height="210" rx="6" fill="#f0f9f4" stroke="#2f7a52" stroke-width="2"/>
+    <rect x="710" y="80" width="420" height="34" rx="6" fill="#2f7a52"/>
+    <text x="920" y="103" font-size="17" font-weight="bold" text-anchor="middle" fill="#ffffff">Employee</text>
+    <text x="722" y="136" font-size="12.5" fill="#1a3f2d">- id: int</text>
+    <text x="722" y="156" font-size="12.5" fill="#1a3f2d">- fullName: string</text>
+    <text x="722" y="176" font-size="12.5" fill="#1a3f2d">- email: string</text>
+    <text x="722" y="196" font-size="12.5" fill="#1a3f2d">- passwordHash: string</text>
+    <text x="722" y="216" font-size="12.5" fill="#1a3f2d">- isActive: bool   - createdAt: datetime</text>
+    <line x1="718" y1="228" x2="1122" y2="228" stroke="#b8e0c8" stroke-width="1"/>
+    <text x="722" y="248" font-size="12.5" fill="#1a3f2d">+ login(): token</text>
+    <text x="722" y="266" font-size="12.5" fill="#1a3f2d">+ review(appId, verifiedFields): Prediction</text>
+    <text x="722" y="284" font-size="12.5" fill="#1a3f2d">+ decide(appId, decision): void</text>
+  </g>
+
+  <!-- ===================== Document class ===================== -->
+  <g>
+    <rect x="710" y="360" width="420" height="230" rx="6" fill="#f0f9f4" stroke="#2f7a52" stroke-width="2"/>
+    <rect x="710" y="360" width="420" height="34" rx="6" fill="#2f7a52"/>
+    <text x="920" y="383" font-size="17" font-weight="bold" text-anchor="middle" fill="#ffffff">Document</text>
+    <text x="722" y="416" font-size="12.5" fill="#1a3f2d">- id: int</text>
+    <text x="722" y="436" font-size="12.5" fill="#1a3f2d">- applicationId: int</text>
+    <text x="722" y="456" font-size="12.5" fill="#1a3f2d">- documentType: DocumentType</text>
+    <text x="722" y="476" font-size="12.5" fill="#1a3f2d">- filePath: string</text>
+    <text x="722" y="496" font-size="12.5" fill="#1a3f2d">- originalFilename: string</text>
+    <text x="722" y="516" font-size="12.5" fill="#1a3f2d">- uploadedAt: datetime</text>
+    <line x1="718" y1="528" x2="1122" y2="528" stroke="#b8e0c8" stroke-width="1"/>
+    <text x="722" y="548" font-size="12.5" fill="#1a3f2d">+ upload(): void</text>
+    <text x="722" y="566" font-size="12.5" fill="#1a3f2d">+ getFile(): file</text>
+  </g>
+
+  <!-- ===================== Enumerations ===================== -->
+  <g>
+    <rect x="710" y="640" width="420" height="180" rx="6" fill="#fefdf8" stroke="#b07726" stroke-width="1.5"/>
+    <rect x="710" y="640" width="420" height="30" rx="6" fill="#b07726"/>
+    <text x="920" y="661" font-size="14" font-weight="bold" text-anchor="middle" fill="#ffffff">«enumerations»</text>
+    <text x="722" y="690" font-size="12" font-weight="bold" fill="#8c5d1f">ProfessionalStatus:</text>
+    <text x="722" y="707" font-size="11.5" fill="#1a3f2d">SALARIE · SELF_EMPLOYED · RETIRED</text>
+    <text x="722" y="730" font-size="12" font-weight="bold" fill="#8c5d1f">ApplicationStatus:</text>
+    <text x="722" y="747" font-size="11.5" fill="#1a3f2d">SUBMITTED · PREDICTED · ACCEPTED · REFUSED</text>
+    <text x="722" y="770" font-size="12" font-weight="bold" fill="#8c5d1f">RiskVerdict:</text>
+    <text x="722" y="787" font-size="11.5" fill="#1a3f2d">LOW RISK · HIGH RISK</text>
+    <text x="722" y="808" font-size="11" font-style="italic" fill="#555">DocumentType: CIN, BULLETINS, ATTESTATION_TRAVAIL, …</text>
+  </g>
+
+  <!-- ===================== Relationships ===================== -->
+  <!-- Employee to Application (decides) -->
+  <line x1="710" y1="250" x2="470" y2="300" stroke="#555" stroke-width="1.5"/>
+  <text x="556" y="262" font-size="11" fill="#266143">decides</text>
+  <text x="700" y="245" font-size="11" fill="#333">1</text>
+  <text x="478" y="296" font-size="11" fill="#333">0..*</text>
+
+  <!-- Application to Document (composition) -->
+  <polygon points="470,470 488,462 506,470 488,478" fill="#2f7a52"/>
+  <line x1="506" y1="470" x2="710" y2="450" stroke="#555" stroke-width="1.5"/>
+  <text x="566" y="452" font-size="11" fill="#266143">contains</text>
+  <text x="512" y="466" font-size="11" fill="#333">1</text>
+  <text x="694" y="446" font-size="11" fill="#333">0..*</text>
+
+  <!-- Legend -->
+  <g>
+    <rect x="40" y="680" width="430" height="120" rx="6" fill="#f7f9f8" stroke="#ccc" stroke-width="1"/>
+    <text x="52" y="702" font-size="13" font-weight="bold" fill="#1a3f2d">Legend</text>
+    <polygon points="60,722 76,716 92,722 76,728" fill="#2f7a52"/>
+    <text x="104" y="726" font-size="12" fill="#333">Composition (Application owns its Documents)</text>
+    <line x1="60" y1="748" x2="92" y2="748" stroke="#555" stroke-width="1.5"/>
+    <text x="104" y="752" font-size="12" fill="#333">Association</text>
+    <text x="60" y="778" font-size="11.5" font-style="italic" fill="#555">Note: prediction fields &amp; the notification flag live on</text>
+    <text x="60" y="794" font-size="11.5" font-style="italic" fill="#555">Application (denormalized) — not separate tables.</text>
+  </g>
+</svg>

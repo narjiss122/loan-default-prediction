@@ -8,4 +8,5 @@ backend/uploads/*
 .env
 *.docx
 *.ppt
-*.pdf
+*.pdf.~lock.*#
+*.tmp
